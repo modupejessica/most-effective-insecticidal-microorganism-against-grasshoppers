@@ -1,0 +1,30 @@
+/ SPDX-License-Identifier: MIT
+pragma solidity ^0.8.30;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+// Token: Insecticidal Organism (ISO)
+
+contract InsecticidalOrganismToken is ERC20, Ownable {
+    constructor(uint256 initialSupply)
+        ERC20("Insecticidal Organism", "ISO")
+        Ownable(msg.sender) // <-- Fix: Pass initialOwner
+    {
+        _mint(msg.sender, initialSupply * 10 ** decimals());
+    }
+
+    // Distribute to a single address
+
+    function distribute(address to, uint256 amount) external onlyOwner {
+        _transfer(owner(), to, amount);
+    }
+    // Distribute to multiple addresses at once
+    
+    function distributeBatch(address[] memory recipients, uint256 amount) external onlyOwner {
+        for (uint256 i = 0; i < recipients.length; i++) {
+            _transfer(owner(), recipients[i], amount);
+        }
+
+    }
+}

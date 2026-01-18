@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.30;
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+
+// Voting Contract: BioLedger Voting
+
+contract InsectcidalOrganismVoting  {
+    // Owner
+    address public owner;
+    IERC20 public votingToken;
+
+    
+    // Election struct
+    
+    struct Election {
+        string title;
+        string[] candidates;
+        uint256 endTime;
+        bool active;
+    }
+
+    Election public election;
+
+    
+    // Vote tracking
+    
+    mapping(uint256 => uint256) public votes; // candidate index => vote count
+    mapping(address => bool) public hasVoted;
+
+    
+    // Events
+    
+    event ElectionCreated(string title, uint256 endTime);
+    event Voted(address voter, uint256 candidateIndex);
+    event ElectionEnded();
+
+    
+    // Modifiers
+    
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
+    modifier electionActive() {
+        require(election.active, "Election not active");
+        require(block.timestamp < election.endTime, "Voting ended");
+        _;
+    }
+
+    
+    // Construct 
+    
+    constructor(address _tokenAddress) {
+        owner = msg.sender;
+        votingToken = IERC20(_tokenAddress);
+    }
+
+    
+    // Create election
+    
+    function createElection(
+        string memory _title,
+        string[] memory _candidates,
+        uint256 _durationInDays
+    ) external onlyOwner {
+        require(!election.active, "Election already active");
+        require(_candidates.length >= 2, "Minimum 2 candidates");
+
+        delete election.candidates;
+        for (uint256 i = 0; i < _candidates.length; i++) {
+            election.candidates.push(_candidates[i]);
+        }
+        election.title = _title;
+        election.endTime = block.timestamp + (_durationInDays * 1 days);
+        election.active = true;
+        emit ElectionCreated(_title, election.endTime);
+    }
+    // Vote
+    function vote(uint256 candidateIndex) external electionActive {
+        require(!hasVoted[msg.sender], "Already voted");
+        require(candidateIndex < election.candidates.length, "Invalid candidate");
+        require(votingToken.balanceOf(msg.sender) > 0, "Must hold ISO tokens");
+        votes[candidateIndex]++;
+        hasVoted[msg.sender] = true;
+        emit Voted(msg.sender, candidateIndex);
+    }
+    // End election    
+    function endElection() external onlyOwner {
+        require(election.active, "Election not active");
+        election.active = false;
+        emit ElectionEnded();
+    }
+
+    // Get candidate
+    function getCandidates() external view returns (string[] memory) {
+        return election.candidates;
+    }
+//get vote
+    function getVotes(uint256 candidateIndex) external view returns (uint256) {
+        return votes[candidateIndex];
+    }
+
+    function hasAddressVoted(address voter) external view returns (bool) {
+        return hasVoted[voter];
+    }
+
+    //gerVOTE
+     function getVote(uint256 candidateIndex) external view returns (uint256) {
+        require(candidateIndex < election.candidates.length, "Invalid candidate");
+        return votes[candidateIndex];
+    }
+//getwinnernd vote count)
+        function getWinner() external view returns (string memory winnerName, uint256 winnerVotes) {
+        require(!election.active, "Election still active");
+        uint256 highestVotes = 0;
+        uint256 winnerIndex = 0;
+        for (uint256 i = 0; i < election.candidates.length; i++) {
+            if (votes[i] > highestVotes) {
+                highestVotes = votes[i];
+                winnerIndex = i;
+            }
+        }
+        winnerName = election.candidates[winnerIndex];
+        winnerVotes = highestVotes;
+        return (winnerName, winnerVotes);
+    }
+}
